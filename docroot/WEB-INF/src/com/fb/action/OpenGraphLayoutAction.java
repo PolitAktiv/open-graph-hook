@@ -13,6 +13,12 @@
  */
 package com.fb.action;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.struts.BaseStrutsAction;
@@ -26,12 +32,7 @@ import com.liferay.portal.model.Layout;
 import com.liferay.portal.theme.ThemeDisplay;
 import com.liferay.portal.util.PortalUtil;
 import com.liferay.portal.webserver.WebServerServletTokenUtil;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import com.liferay.portlet.journalcontent.util.JournalContentUtil;
 
 /**
  * @author Julio Camarero
@@ -97,7 +98,6 @@ public class OpenGraphLayoutAction extends BaseStrutsAction {
 				ogType = "website";
 			}
 		}
-
 		opengraphAttributes.put("type", ogType);
 
 		String url = PortalUtil.getCanonicalURL(
@@ -138,16 +138,36 @@ public class OpenGraphLayoutAction extends BaseStrutsAction {
 
 		opengraphAttributes.put("locale", themeDisplay.getLanguageId());
 
-		if (Validator.isNull(ogImage) && layout.isIconImage()) {
-			ogImage = themeDisplay.getPathImage() + "/layout_icon?img_id=" +
-				layout.getIconImageId() + "&t=" +
-				WebServerServletTokenUtil.getToken(layout.getIconImageId());
-		}
+		
+		/* Politaktiv: Do not use the icon as default, 
+		 * use a specific default image for every group (managed by admin)
+		 * use the Politaktiv Logo, if no specific picture is specified for the group
+		 * */
+		
+		// If there is no Image specified for the Page... 
+        if (Validator.isNull(ogImage)) {
+            
+            // ... use default image for group ...
+            
+            String defaultDKImageId = themeDisplay.getTheme().getSetting("defaultDKImage"); 
+         // DEPENDENCY: Settings are set in politaktiv-default-theme
+            ogImage = JournalContentUtil.getContent(group.getGroupId(), defaultDKImageId, null, "locale", themeDisplay);
+            
+            // ... and if there is no default image (-> ogImage still is null), use the Politaktiv-Logo
+            if(ogImage == null){
+               ogImage =    themeDisplay.getPathImage() 
+                           + "/company_logo?img_id=" 
+                           + themeDisplay.getCompany().getLogoId() 
+                           + "&t=" 
+                           + WebServerServletTokenUtil.getToken(themeDisplay.getCompany().getLogoId());     
+            }
+               
+        }
 
-		if (Validator.isNotNull(ogImage)) {
-			opengraphAttributes.put("image", ogImage);
-			twitterAttributes.put("image", ogImage);
-		}
+        if (Validator.isNotNull(ogImage)) {
+            opengraphAttributes.put("image", ogImage);
+            twitterAttributes.put("image", ogImage);
+        }
 		
 		String twCard = layoutTypeSettings.getProperty("twitter-card");
 		String twSite = layoutTypeSettings.getProperty("twitter-site");
